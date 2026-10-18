@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKELLYVERSE // ADMIN</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --fg: #f2f2f2;
+            --muted: #666666;
+            --line: #222222;
+            --accent: #dfff11;
+            --error: #ff4444;
+            --success: #22c55e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+
+        body {
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'Space Mono', monospace;
+            min-height: 100vh;
+            padding: 40px;
+        }
+
+        /* ─── Login Screen ─────────────────────────────────────────────── */
+        #login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            gap: 24px;
+        }
+        #login-screen h1 {
+            font-family: 'Inter', sans-serif;
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+        }
+        #login-screen .label {
+            font-size: 0.6rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        #login-password {
+            background: transparent;
+            border: 1px solid var(--line);
+            border-bottom: 1px solid var(--fg);
+            color: var(--fg);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            padding: 10px 16px;
+            width: 280px;
+            outline: none;
+            text-align: center;
+            letter-spacing: 0.1em;
+        }
+        #login-password:focus { border-bottom-color: var(--accent); }
+        #login-error { color: var(--error); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; display: none; }
+
+        /* ─── Admin Panel ──────────────────────────────────────────────── */
+        #admin-panel { display: none; max-width: 900px; margin: 0 auto; }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 48px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--line);
+        }
+        .admin-header h1 {
+            font-family: 'Inter', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+        }
+        .admin-header span {
+            font-size: 0.6rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .section-title {
+            font-size: 0.6rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            display: block;
+            width: 8px; height: 8px;
+            background: var(--accent);
+        }
+
+        /* ─── Track Slots ──────────────────────────────────────────────── */
+        .tracks-grid { display: flex; flex-direction: column; gap: 2px; margin-bottom: 48px; }
+
+        .track-slot {
+            border: 1px solid var(--line);
+            padding: 16px 20px;
+            transition: border-color 0.2s ease;
+        }
+        .track-slot:hover { border-color: var(--muted); }
+        .track-slot.has-track { border-color: var(--accent); }
+
+        .slot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .slot-num {
+            font-size: 0.65rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .slot-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--fg);
+        }
+        .slot-type {
+            font-size: 0.55rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            border: 1px solid var(--accent);
+            padding: 2px 6px;
+        }
+
+        .slot-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        /* ─── Mode Toggle ──────────────────────────────────────────────── */
+        .mode-toggle {
+            display: flex;
+            gap: 0;
+            margin-bottom: 12px;
+        }
+        .mode-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.55rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 5px 12px;
+            border: 1px solid var(--line);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .mode-btn.active {
+            background: var(--fg);
+            color: var(--bg);
+            border-color: var(--fg);
+        }
+
+        /* ─── Inputs ───────────────────────────────────────────────────── */
+        .input-row { display: flex; gap: 8px; align-items: center; width: 100%; }
+
+        input[type="text"], input[type="file"] {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid var(--line);
+            color: var(--fg);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            padding: 8px 0;
+            outline: none;
+            width: 100%;
+            transition: border-color 0.2s ease;
+        }
+        input[type="text"]:focus { border-bottom-color: var(--accent); }
+        input[type="text"]::placeholder { color: var(--muted); }
+
+        input[type="file"] { color: var(--muted); cursor: pointer; }
+
+        .manual-row { display: flex; gap: 16px; }
+        .manual-row input { flex: 1; }
+
+        /* ─── Buttons ──────────────────────────────────────────────────── */
+        .btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 8px 16px;
+            border: 1px solid var(--fg);
+            background: transparent;
+            color: var(--fg);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .btn:hover { background: var(--fg); color: var(--bg); }
+        .btn.accent { border-color: var(--accent); color: var(--accent); }
+        .btn.accent:hover { background: var(--accent); color: var(--bg); }
+        .btn.danger { border-color: var(--error); color: var(--error); }
+        .btn.danger:hover { background: var(--error); color: var(--bg); }
+
+        /* ─── Status messages ──────────────────────────────────────────── */
+        .status-msg {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 8px;
+            min-height: 16px;
+        }
+        .status-msg.success { color: var(--success); }
+        .status-msg.error   { color: var(--error); }
+        .status-msg.loading { color: var(--muted); }
+
+        /* ─── Config Section ───────────────────────────────────────────── */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px 40px;
+            margin-bottom: 48px;
+        }
+        .config-field label {
+            display: block;
+            font-size: 0.55rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 6px;
+        }
+
+        .save-config-btn { margin-top: 16px; }
+
+        @media (max-width: 600px) {
+            body { padding: 20px; }
+            .config-grid { grid-template-columns: 1fr; }
+            .manual-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ─── Login Screen ─────────────────────────────────────────────────────── -->
+<div id="login-screen">
+    <div class="label">SKELLYVERSE // ADMIN ACCESS</div>
+    <h1>ENTER PASSWORD</h1>
+    <input type="password" id="login-password" placeholder="••••••••••" autofocus>
+    <div id="login-error">Incorrect password</div>
+</div>
+
+<!-- ─── Admin Panel ──────────────────────────────────────────────────────── -->
+<div id="admin-panel">
+
+    <div class="admin-header">
+        <h1>SKELLYVERSE</h1>
+        <span>ADMIN_PANEL // CONTROL CENTER</span>
+    </div>
+
+    <!-- ─── TRACKS ─────────────────────────────────────────────────────── -->
+    <div class="section-title">LATEST_RELEASES // TRACK MANAGEMENT</div>
+    <div class="tracks-grid" id="tracks-grid">
+        <!-- Slots rendered by JS -->
+    </div>
+
+    <!-- ─── LINKS ──────────────────────────────────────────────────────── -->
+    <div class="section-title">LINKS // STREAMING + CONTACT</div>
+    <div class="config-grid" id="links-grid">
+        <div class="config-field">
+            <label>Spotify Artist URL</label>
+            <input type="text" id="cfg-spotify" placeholder="https://open.spotify.com/artist/...">
+        </div>
+        <div class="config-field">
+            <label>Apple Music URL</label>
+            <input type="text" id="cfg-apple" placeholder="https://music.apple.com/...">
+        </div>
+        <div class="config-field">
+            <label>SoundCloud URL</label>
+            <input type="text" id="cfg-soundcloud" placeholder="https://soundcloud.com/...">
+        </div>
+        <div class="config-field">
+            <label>Send Beats Email</label>
+            <input type="text" id="cfg-sendbeats" placeholder="mailto:you@email.com">
+        </div>
+        <div class="config-field">
+            <label>Booking Email</label>
+            <input type="text" id="cfg-booking" placeholder="mailto:you@email.com">
+        </div>
+        <div class="config-field">
+            <label>Shop URL</label>
+            <input type="text" id="cfg-shop" placeholder="https://...">
+        </div>
+    </div>
+
+    <!-- ─── SOCIALS ────────────────────────────────────────────────────── -->
+    <div class="section-title">SOCIALS // PLATFORM LINKS</div>
+    <div class="config-grid">
+        <div class="config-field">
+            <label>X (Twitter)</label>
+            <input type="text" id="cfg-twitter" placeholder="https://x.com/...">
+        </div>
+        <div class="config-field">
+            <label>Instagram</label>
+            <input type="text" id="cfg-instagram" placeholder="https://instagram.com/...">
+        </div>
+        <div class="config-field">
+            <label>TikTok</label>
+            <input type="text" id="cfg-tiktok" placeholder="https://tiktok.com/...">
+        </div>
+        <div class="config-field">
+            <label>Discord</label>
+            <input type="text" id="cfg-discord" placeholder="https://discord.gg/...">
+        </div>
+        <div class="config-field">
+            <label>YouTube</label>
+            <input type="text" id="cfg-youtube" placeholder="https://youtube.com/...">
+        </div>
+    </div>
+
+    <button class="btn accent save-config-btn" onclick="saveConfig()">SAVE ALL LINKS + SOCIALS</button>
+    <div class="status-msg" id="config-status"></div>
+
+</div>
+
+<script>
+    let adminPassword = '';
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // ─── Login ────────────────────────────────────────────────────────────────
+    document.getElementById('login-password').addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        const pw = e.target.value.trim();
+        const res = await fetch('/api/admin/check', { headers: { 'x-admin-password': pw } });
+        if (res.ok) {
+            adminPassword = pw;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+            init();
+        } else {
+            const err = document.getElementById('login-error');
+            if (res.status === 429) err.textContent = 'TOO MANY WRONG PASSWORDS. WAIT 15 MINUTES.';
+            err.style.display = 'block';
+        }
+    });
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    async function init() {
+        await loadTracks();
+        await loadConfig();
+    }
+
+    // ─── Tracks ───────────────────────────────────────────────────────────────
+    let tracks = Array(5).fill(null);
+
+    async function loadTracks() {
+        const res = await fetch('/api/tracks');
+        tracks = await res.json();
+        renderTrackSlots();
+    }
+
+    function renderTrackSlots() {
+        const grid = document.getElementById('tracks-grid');
+        grid.innerHTML = '';
+        tracks.forEach((track, i) => {
+            const slot = document.createElement('div');
+            slot.className = 'track-slot' + (track ? ' has-track' : '');
+            slot.innerHTML = `
+                <div class="slot-header">
+                    <span class="slot-num">SLOT ${String(i+1).padStart(2,'0')}</span>
+                    <span class="slot-title">${track ? esc(track.title) : 'EMPTY'}</span>
+                    ${track ? `<span class="slot-type">${esc(track.type).toUpperCase()}</span>` : ''}
+                </div>
+                <div class="mode-toggle">
+                    <button class="mode-btn ${!track || track.type === 'spotify' ? 'active' : ''}" onclick="setMode(${i}, 'spotify')">SPOTIFY</button>
+                    <button class="mode-btn ${track && track.type === 'wav' ? 'active' : ''}" onclick="setMode(${i}, 'wav')">WAV UPLOAD</button>
+                    <button class="mode-btn ${track && track.type === 'manual' ? 'active' : ''}" onclick="setMode(${i}, 'manual')">MANUAL</button>
+                </div>
+                <div id="mode-spotify-${i}" class="slot-mode">
+                    <div class="input-row">
+                        <input type="text" id="spotify-url-${i}" placeholder="Paste Spotify track URL..." value="${track && track.type === 'spotify' ? `https://open.spotify.com/track/${esc(track.spotifyId)}` : ''}">
+                        <button class="btn accent" onclick="lookupSpotify(${i})">FETCH</button>
+                    </div>
+                    <div class="status-msg" id="spotify-status-${i}"></div>
+                </div>
+                <div id="mode-wav-${i}" class="slot-mode" style="display:none">
+                    <div class="manual-row" style="margin-bottom:12px;">
+                        <input type="text" id="wav-title-${i}" placeholder="TRACK TITLE" value="${track && track.type === 'wav' ? esc(track.title) : ''}">
+                        <input type="text" id="wav-duration-${i}" placeholder="0:00" value="${track && track.type === 'wav' ? esc(track.duration) : ''}">
+                    </div>
+                    <div class="input-row">
+                        <input type="file" id="wav-file-${i}" accept=".wav,.mp3,.flac">
+                        <button class="btn accent" onclick="uploadWav(${i})">UPLOAD</button>
+                    </div>
+                    <div class="status-msg" id="wav-status-${i}"></div>
+                </div>
+                <div id="mode-manual-${i}" class="slot-mode" style="display:none">
+                    <div class="manual-row" style="margin-bottom:12px;">
+                        <input type="text" id="manual-title-${i}" placeholder="TRACK TITLE" value="${track && track.type === 'manual' ? esc(track.title) : ''}">
+                        <input type="text" id="manual-duration-${i}" placeholder="0:00" value="${track && track.type === 'manual' ? esc(track.duration) : ''}">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="manual-spotify-${i}" placeholder="Spotify track URL (for playback)" value="${track && track.type === 'manual' && track.spotifyId ? 'https://open.spotify.com/track/' + esc(track.spotifyId) : ''}">
+                    </div>
+                    <div style="margin-top:12px;">
+                        <button class="btn accent" onclick="saveManual(${i})">SAVE</button>
+                    </div>
+                    <div class="status-msg" id="manual-status-${i}"></div>
+                </div>
+                ${track ? `<div style="margin-top:12px;"><button class="btn danger" onclick="clearSlot(${i})">CLEAR SLOT</button></div>` : ''}
+            `;
+            grid.appendChild(slot);
+            // Show correct mode panel
+            if (track) setMode(i, track.type, false);
+        });
+    }
+
+    function setMode(slot, mode, rerender = true) {
+        ['spotify','wav','manual'].forEach(m => {
+            const el = document.getElementById(`mode-${m}-${slot}`);
+            if (el) el.style.display = m === mode ? 'block' : 'none';
+            const btn = document.querySelector(`#tracks-grid .track-slot:nth-child(${slot+1}) .mode-btn:nth-child(${['spotify','wav','manual'].indexOf(m)+1})`);
+            if (btn) btn.classList.toggle('active', m === mode);
+        });
+    }
+
+    async function lookupSpotify(slot) {
+        const url = document.getElementById(`spotify-url-${slot}`).value.trim();
+        const status = document.getElementById(`spotify-status-${slot}`);
+        if (!url) return;
+        status.textContent = 'FETCHING...';
+        status.className = 'status-msg loading';
+        try {
+            const res = await fetch('/api/spotify/lookup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                body: JSON.stringify({ url })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            await saveTrack(slot, data);
+            status.textContent = `✓ SAVED — ${data.title} [${data.duration}]`;
+            status.className = 'status-msg success';
+            await loadTracks();
+        } catch (e) {
+            status.textContent = `ERROR: ${e.message}`;
+            status.className = 'status-msg error';
+        }
+    }
+
+    async function uploadWav(slot) {
+        const file = document.getElementById(`wav-file-${slot}`).files[0];
+        const title = document.getElementById(`wav-title-${slot}`).value.trim().toUpperCase();
+        const duration = document.getElementById(`wav-duration-${slot}`).value.trim();
+        const status = document.getElementById(`wav-status-${slot}`);
+        if (!file) { status.textContent = 'SELECT A FILE FIRST'; status.className = 'status-msg error'; return; }
+        if (!title) { status.textContent = 'ENTER A TITLE'; status.className = 'status-msg error'; return; }
+        if (!duration) { status.textContent = 'ENTER DURATION (e.g. 3:45)'; status.className = 'status-msg error'; return; }
+        status.textContent = 'UPLOADING...';
+        status.className = 'status-msg loading';
+        try {
+            const form = new FormData();
+            form.append('audio', file);
+            const res = await fetch('/api/upload/wav', {
+                method: 'POST',
+                headers: { 'x-admin-password': adminPassword },
+                body: form
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            await saveTrack(slot, { title, duration, url: data.url, type: 'wav' });
+            status.textContent = `✓ UPLOADED — ${title}`;
+            status.className = 'status-msg success';
+            await loadTracks();
+        } catch (e) {
+            status.textContent = `ERROR: ${e.message}`;
+            status.className = 'status-msg error';
+        }
+    }
+
+    async function saveManual(slot) {
+        const title    = document.getElementById(`manual-title-${slot}`).value.trim().toUpperCase();
+        const duration = document.getElementById(`manual-duration-${slot}`).value.trim();
+        const spotifyUrl = document.getElementById(`manual-spotify-${slot}`).value.trim();
+        const status   = document.getElementById(`manual-status-${slot}`);
+        if (!title)    { status.textContent = 'ENTER A TITLE';    status.className = 'status-msg error'; return; }
+        if (!duration) { status.textContent = 'ENTER DURATION';   status.className = 'status-msg error'; return; }
+        const spotifyId = spotifyUrl.match(/track\/([a-zA-Z0-9]+)/)?.[1] || null;
+        const type = spotifyId ? 'spotify' : 'manual';
+        try {
+            await saveTrack(slot, { title, duration, type, spotifyId, url: null });
+            status.textContent = '✓ SAVED';
+            status.className = 'status-msg success';
+            await loadTracks();
+        } catch (e) {
+            status.textContent = `ERROR: ${e.message}`;
+            status.className = 'status-msg error';
+        }
+    }
+
+    // Throws with the server's message so callers can show it instead of a fake success
+    async function saveTrack(slot, trackData) {
+        const res = await fetch(`/api/tracks/${slot}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+            body: JSON.stringify(trackData)
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+    }
+
+    async function clearSlot(slot) {
+        if (!confirm(`Clear slot ${slot + 1}?`)) return;
+        const res = await fetch(`/api/tracks/${slot}`, {
+            method: 'DELETE',
+            headers: { 'x-admin-password': adminPassword }
+        });
+        if (!res.ok) alert('Could not clear slot: ' + ((await res.json().catch(() => ({}))).error || res.status));
+        await loadTracks();
+    }
+
+    // ─── Config ───────────────────────────────────────────────────────────────
+    async function loadConfig() {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        if (cfg.spotifyUrl)    document.getElementById('cfg-spotify').value    = cfg.spotifyUrl;
+        if (cfg.appleMusicUrl) document.getElementById('cfg-apple').value      = cfg.appleMusicUrl;
+        if (cfg.soundcloudUrl) document.getElementById('cfg-soundcloud').value = cfg.soundcloudUrl;
+        if (cfg.sendBeatsUrl)  document.getElementById('cfg-sendbeats').value  = cfg.sendBeatsUrl;
+        if (cfg.bookingUrl)    document.getElementById('cfg-booking').value    = cfg.bookingUrl;
+        if (cfg.shopUrl)       document.getElementById('cfg-shop').value       = cfg.shopUrl;
+        if (cfg.socials) {
+            if (cfg.socials.twitter)   document.getElementById('cfg-twitter').value   = cfg.socials.twitter;
+            if (cfg.socials.instagram) document.getElementById('cfg-instagram').value = cfg.socials.instagram;
+            if (cfg.socials.tiktok)    document.getElementById('cfg-tiktok').value    = cfg.socials.tiktok;
+            if (cfg.socials.discord)   document.getElementById('cfg-discord').value   = cfg.socials.discord;
+            if (cfg.socials.youtube)   document.getElementById('cfg-youtube').value   = cfg.socials.youtube;
+        }
+    }
+
+    async function saveConfig() {
+        const status = document.getElementById('config-status');
+        status.textContent = 'SAVING...';
+        status.className = 'status-msg loading';
+        try {
+            const body = {
+                spotifyUrl:    document.getElementById('cfg-spotify').value.trim(),
+                appleMusicUrl: document.getElementById('cfg-apple').value.trim(),
+                soundcloudUrl: document.getElementById('cfg-soundcloud').value.trim(),
+                sendBeatsUrl:  document.getElementById('cfg-sendbeats').value.trim(),
+                bookingUrl:    document.getElementById('cfg-booking').value.trim(),
+                shopUrl:       document.getElementById('cfg-shop').value.trim(),
+                socials: {
+                    twitter:   document.getElementById('cfg-twitter').value.trim(),
+                    instagram: document.getElementById('cfg-instagram').value.trim(),
+                    tiktok:    document.getElementById('cfg-tiktok').value.trim(),
+                    discord:   document.getElementById('cfg-discord').value.trim(),
+                    youtube:   document.getElementById('cfg-youtube').value.trim(),
+                }
+            };
+            const res = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to save');
+            status.textContent = '✓ ALL CHANGES SAVED';
+            status.className = 'status-msg success';
+        } catch (e) {
+            status.textContent = 'ERROR: ' + e.message;
+            status.className = 'status-msg error';
+        }
+    }
+</script>
+</body>
+</html>
