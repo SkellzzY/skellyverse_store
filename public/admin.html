@@ -239,10 +239,30 @@
 
         .save-config-btn { margin-top: 16px; }
 
+        /* ─── Release ──────────────────────────────────────────────────── */
+        .release-box { display: flex; gap: 24px; margin-bottom: 16px; }
+        .release-cover {
+            width: 140px; height: 140px; flex-shrink: 0;
+            border: 1px solid var(--line);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.55rem; color: var(--muted); letter-spacing: 0.1em;
+            overflow: hidden;
+        }
+        .release-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .release-box .config-grid { flex: 1; margin-bottom: 0; }
+        .hint { font-size: 0.55rem; color: var(--muted); letter-spacing: 0.05em; margin-top: 4px; line-height: 1.5; }
+        input[type="datetime-local"] {
+            background: transparent; border: none; border-bottom: 1px solid var(--line);
+            color: var(--fg); font-family: 'Space Mono', monospace; font-size: 0.75rem;
+            padding: 8px 0; outline: none; width: 100%; color-scheme: dark;
+        }
+        input[type="datetime-local"]:focus { border-bottom-color: var(--accent); }
+
         @media (max-width: 600px) {
             body { padding: 20px; }
             .config-grid { grid-template-columns: 1fr; }
             .manual-row { flex-direction: column; }
+            .release-box { flex-direction: column; }
         }
     </style>
 </head>
@@ -263,6 +283,44 @@
         <h1>SKELLYVERSE</h1>
         <span>ADMIN_PANEL // CONTROL CENTER</span>
     </div>
+
+    <!-- ─── RELEASE ────────────────────────────────────────────────────── -->
+    <div class="section-title">NEW_RELEASE // <a href="/backofdaback" target="_blank" style="color:inherit">SKELLYVERSE.STORE/BACKOFDABACK</a></div>
+    <div class="release-box">
+        <div class="release-cover" id="rel-cover-preview">NO COVER</div>
+        <div class="config-grid">
+            <div class="config-field">
+                <label>Title</label>
+                <input type="text" id="rel-title" placeholder="BACK OF DA BACK">
+            </div>
+            <div class="config-field">
+                <label>Drops at (your local time)</label>
+                <input type="datetime-local" id="rel-at">
+            </div>
+            <div class="config-field">
+                <label>Pre-save link (before the drop)</label>
+                <input type="text" id="rel-presave" placeholder="https://distrokid.com/hyperfollow/...">
+                <div class="hint">Shown only until the countdown ends. Leave blank to skip.</div>
+            </div>
+            <div class="config-field">
+                <label>Cover art</label>
+                <input type="file" id="rel-cover-file" accept=".jpg,.jpeg,.png,.webp">
+                <div class="hint">Square JPG or PNG. Uploads when you hit SAVE.</div>
+            </div>
+            <div class="config-field">
+                <label>Spotify song link</label>
+                <input type="text" id="rel-spotify" placeholder="https://open.spotify.com/track/...">
+            </div>
+            <div class="config-field">
+                <label>Apple Music song link</label>
+                <input type="text" id="rel-apple" placeholder="https://music.apple.com/...">
+                <div class="hint">Works before the drop as the pre-add link. iTunes links get switched to Apple Music.</div>
+            </div>
+        </div>
+    </div>
+    <div class="hint" style="margin-bottom:16px">After the drop, empty song links fall back to your artist pages.</div>
+    <button class="btn accent" onclick="saveRelease()">SAVE RELEASE</button>
+    <div class="status-msg" id="release-status" style="margin-bottom:48px"></div>
 
     <!-- ─── TRACKS ─────────────────────────────────────────────────────── -->
     <div class="section-title">LATEST_RELEASES // TRACK MANAGEMENT</div>
@@ -354,6 +412,84 @@
     async function init() {
         await loadTracks();
         await loadConfig();
+    }
+
+    // ─── Release ──────────────────────────────────────────────────────────────
+    let releaseCover = '';
+
+    function showCover(url) {
+        releaseCover = url || '';
+        const box = document.getElementById('rel-cover-preview');
+        if (releaseCover) {
+            const img = document.createElement('img');
+            img.src = releaseCover;
+            box.replaceChildren(img);
+        } else {
+            box.textContent = 'NO COVER';
+        }
+    }
+
+    // ISO time -> value for a datetime-local input, in this browser's timezone
+    function toLocalInput(iso) {
+        const d = new Date(iso);
+        if (isNaN(d)) return '';
+        return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+
+    function loadRelease(r) {
+        if (!r) return;
+        document.getElementById('rel-title').value   = r.title || '';
+        document.getElementById('rel-at').value      = toLocalInput(r.releaseAt);
+        document.getElementById('rel-presave').value = r.presaveUrl || '';
+        document.getElementById('rel-spotify').value = r.spotifyUrl || '';
+        document.getElementById('rel-apple').value   = r.appleUrl || '';
+        showCover(r.coverUrl);
+    }
+
+    async function saveRelease() {
+        const status = document.getElementById('release-status');
+        status.textContent = 'SAVING...';
+        status.className = 'status-msg loading';
+        try {
+            const at = document.getElementById('rel-at').value;
+            if (!at) throw new Error('Pick a release date');
+
+            const file = document.getElementById('rel-cover-file').files[0];
+            if (file) {
+                const form = new FormData();
+                form.append('cover', file);
+                const up = await fetch('/api/upload/cover', {
+                    method: 'POST',
+                    headers: { 'x-admin-password': adminPassword },
+                    body: form
+                });
+                const data = await up.json();
+                if (!up.ok) throw new Error(data.error);
+                showCover(data.url);
+                document.getElementById('rel-cover-file').value = '';
+            }
+
+            const res = await fetch('/api/release', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                body: JSON.stringify({
+                    title:      document.getElementById('rel-title').value.trim(),
+                    releaseAt:  new Date(at).toISOString(),
+                    coverUrl:   releaseCover,
+                    presaveUrl: document.getElementById('rel-presave').value.trim(),
+                    spotifyUrl: document.getElementById('rel-spotify').value.trim(),
+                    appleUrl:   document.getElementById('rel-apple').value.trim()
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Save failed');
+            loadRelease(data.release);
+            status.textContent = '✓ RELEASE SAVED';
+            status.className = 'status-msg success';
+        } catch (e) {
+            status.textContent = 'ERROR: ' + e.message;
+            status.className = 'status-msg error';
+        }
     }
 
     // ─── Tracks ───────────────────────────────────────────────────────────────
@@ -528,6 +664,7 @@
     async function loadConfig() {
         const res = await fetch('/api/config');
         const cfg = await res.json();
+        loadRelease(cfg.release);
         if (cfg.spotifyUrl)    document.getElementById('cfg-spotify').value    = cfg.spotifyUrl;
         if (cfg.appleMusicUrl) document.getElementById('cfg-apple').value      = cfg.appleMusicUrl;
         if (cfg.soundcloudUrl) document.getElementById('cfg-soundcloud').value = cfg.soundcloudUrl;

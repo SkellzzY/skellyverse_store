@@ -14,6 +14,7 @@ const PROD = process.env.NODE_ENV === 'production';
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const DATA_FILE = path.join(DATA_DIR, 'tracks.json');
+const RELEASE_TEMPLATE = fs.readFileSync(path.join(__dirname, 'views', 'release.html'), 'utf8');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
@@ -38,7 +39,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
+// Oct 27 2026, 11pm Central (CDT, UTC-5)
+const DEFAULT_RELEASE = {
+  title: 'BACK OF DA BACK',
+  releaseAt: '2026-10-28T04:00:00.000Z',
+  coverUrl: '',
+  spotifyUrl: '',
+  appleUrl: 'https://music.apple.com/us/album/back-of-da-back-single/6824066153?app=music',
+  presaveUrl: 'https://distrokid.com/hyperfollow/skelly11/back-of-da-back'
+};
+
 function readData() {
+  const data = readRawData();
+  data.config.release = { ...DEFAULT_RELEASE, ...data.config.release };
+  return data;
+}
+
+function readRawData() {
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch {
@@ -99,6 +116,31 @@ function cleanTrack(b) {
   return { type, title, duration, spotifyId, url };
 }
 
+// Old iTunes links (and app=itunes) open the iTunes Store. Point them at Apple Music and its app instead.
+function toAppleMusic(v) {
+  if (!v) return v;
+  const u = new URL(v);
+  if (!/(^|\.)(itunes|music)\.apple\.com$/.test(u.hostname)) return v;
+  u.hostname = 'music.apple.com';
+  u.searchParams.set('app', 'music');
+  return u.toString();
+}
+
+function cleanRelease(b) {
+  const title = cleanText(b.title, 80).toUpperCase();
+  const at = new Date(b.releaseAt);
+  if (!title || isNaN(at)) return null;
+  const coverUrl = b.coverUrl && UPLOAD_URL.test(b.coverUrl) ? b.coverUrl : '';
+  const links = {};
+  for (const k of ['spotifyUrl', 'appleUrl', 'presaveUrl']) {
+    const v = cleanUrl(b[k]);
+    if (v === null) return null;
+    links[k] = v === '#' ? '' : v;
+  }
+  links.appleUrl = toAppleMusic(links.appleUrl);
+  return { title, releaseAt: at.toISOString(), coverUrl, ...links };
+}
+
 const CONFIG_LINKS = ['spotifyUrl', 'appleMusicUrl', 'soundcloudUrl', 'sendBeatsUrl', 'bookingUrl', 'shopUrl'];
 const SOCIALS = ['twitter', 'instagram', 'tiktok', 'discord', 'youtube'];
 
@@ -138,6 +180,21 @@ const upload = multer({
   }
 });
 
+const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
+const uploadImage = multer({
+  storage: multer.diskStorage({
+    destination: UPLOAD_DIR,
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `cover_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${ext}`);
+    }
+  }),
+  limits: { fileSize: 15 * 1024 * 1024, files: 1 }, // 15MB
+  fileFilter: (req, file, cb) => {
+    cb(null, IMAGE_EXT.includes(path.extname(file.originalname).toLowerCase()));
+  }
+});
+
 // ─── Public Routes ────────────────────────────────────────────────────────────
 app.get('/api/tracks', (req, res) => {
   res.json(readData().tracks);
@@ -145,6 +202,22 @@ app.get('/api/tracks', (req, res) => {
 
 app.get('/api/config', (req, res) => {
   res.json(readData().config);
+});
+
+// Release page. Rendered on the server so link previews (iMessage, IG, X) show the title and cover.
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+app.get(['/backofdaback', '/release'], (req, res) => {
+  const r = readData().config.release;
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const vars = {
+    TITLE: escHtml(r.title),
+    DESCRIPTION: escHtml(`SKELLY - ${r.title}. Stream it on Spotify and Apple Music.`),
+    URL: escHtml(origin + req.path),
+    IMAGE: r.coverUrl ? escHtml(origin + r.coverUrl) : ''
+  };
+  let html = RELEASE_TEMPLATE.replace(/\{\{(\w+)\}\}/g, (m, k) => vars[k] ?? '');
+  if (!vars.IMAGE) html = html.replace(/^.*og:image.*$|^.*twitter:image.*$/gm, '');
+  res.type('html').send(html);
 });
 
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
@@ -207,6 +280,22 @@ app.post('/api/upload/wav', requireAdmin, upload.single('audio'), (req, res) => 
   res.json({ url: `/uploads/${req.file.filename}` });
 });
 
+// Upload release cover art
+app.post('/api/upload/cover', requireAdmin, uploadImage.single('cover'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image uploaded (JPG, PNG or WEBP only)' });
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
+
+// Save release
+app.post('/api/release', requireAdmin, (req, res) => {
+  const release = cleanRelease(req.body || {});
+  if (!release) return res.status(400).json({ error: 'Need a title, a release date, and valid links' });
+  const data = readRawData();
+  data.config.release = release;
+  writeData(data);
+  res.json({ ok: true, release });
+});
+
 // Save track to slot
 app.post('/api/tracks/:slot', requireAdmin, (req, res) => {
   const slot = parseInt(req.params.slot);
@@ -252,7 +341,7 @@ app.post('/api/config', requireAdmin, (req, res) => {
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File over 200MB' : err.message });
+  if (err instanceof multer.MulterError) return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'File too big' : err.message });
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Bad JSON' });
   console.error(err);
   res.status(500).json({ error: 'Server error' });
